@@ -1,0 +1,22 @@
+{
+  "name": "api-backend-project-7",
+  "version": "1.0.0",
+  "description": "API with sequelize (sql/mariadb) and express",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Marvin Bost",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.0.0",
+    "body-parser": "^1.19.0",
+    "express": "^4.17.1",
+    "express-validator": "^6.6.1",
+    "helmet": "^4.1.1",
+    "jsonwebtoken": "^8.5.1",
+    "mariadb": "^2.4.2",
+    "nodemon": "^2.0.5",
+    "sequelize": "^6.3.5"
+  }
+}
