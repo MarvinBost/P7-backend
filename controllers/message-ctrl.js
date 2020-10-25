@@ -68,7 +68,7 @@ exports.listMessages = (req, res) => {
         limit = 10;
     }
     models.Message.findAll({
-            order: [(order != null) ? order.split(':') : ['title', 'ASC']],
+            order: [(order != null) ? order.split(':') : ['createdAt', 'DESC']],
             attributes: (fields != '*' && fields != null) ? fields.split(',') : null,
             limit: (!isNaN(limit)) ? limit : 10,
             offset: (!isNaN(offset)) ? offset : null,
@@ -96,45 +96,70 @@ exports.listMessages = (req, res) => {
 
 exports.deleteMessage = (req, res) => {
     const isadmin = jwt.isAdmin(req)
+    const id = jwt.getid(req)
     const messageId = parseInt(req.params.messageId)
     if (isadmin) {
-        models.Like.destroy({
+        models.Message.destroy({
                 where: {
-                    messageId: messageId
+                    id: messageId
                 }
             })
-            .then(likeDeleted => {
-
-                models.Message.destroy({
-                        where: {
-                            id: messageId
-                        }
+            .then(deleted => {
+                if (deleted) {
+                    return res.status(200).json({
+                        response: 'Message deleted successfully !'
                     })
-                    .then(deleted => {
-                        if (deleted) {
-                            res.status(200).json({
-                                response: 'Message deleted successfully !'
-                            })
-                        } else {
-                            res.status(404).json({
-                                message: 'Message not found !'
-                            })
-                        }
+                } else {
+                    return res.status(404).json({
+                        message: 'Message not found !'
                     })
-                    .catch(err => {
-                        res.status(500).json({
-                            error: `${err}`
-                        })
-                    })
+                }
             })
             .catch(err => {
-                res.status(500).json({
+                return res.status(500).json({
                     error: `${err}`
                 })
             })
     } else {
-        res.status(401).json({
-            message: 'User unauthorized'
-        })
+        models.Message.findOne({ // Try to find a message on DataBase
+                where: {
+                    userId: id, // with your id in the token 
+                    id: messageId // and with the message id in the request parameter
+                }
+            })
+            .then(message => {
+                if (message) {
+                    models.Message.destroy({
+                            where: {
+                                id: messageId
+                            }
+                        })
+                        .then(deleted => {
+                            if (deleted) {
+                                return res.status(200).json({
+                                    response: 'Message deleted successfully !'
+                                })
+                            } else {
+                                return res.status(404).json({
+                                    message: 'Message not found !'
+                                })
+                            }
+                        })
+                        .catch(err => {
+                            return res.status(500).json({
+                                error: `${err}`
+                            })
+                        })
+                } else {
+                    return res.status(401).json({
+                        message: 'is not your own message'
+                    })
+                }
+            })
+            .catch(err => {
+                return res.status(404).json({
+                    message: 'is not your message'
+                })
+            })
     }
 }

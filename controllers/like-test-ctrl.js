@@ -78,7 +78,7 @@ exports.like = (req, res) => {
                                 })
 
                         } else {
-                            return res.status(409).json({
+                            return res.status(304).json({
                                 'error': 'message already liked'
                             })
                         }
@@ -167,7 +167,7 @@ exports.dislike = (req, res) => {
                                     }
                                 })
                         } else {
-                            return res.status(409).json({
+                            return res.status(304).json({
                                 'error': 'message already disliked'
                             })
                         }

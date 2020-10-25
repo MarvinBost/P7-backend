@@ -40,15 +40,15 @@ exports.signup = (req, res) => {
                         })
                 })
             } else {
-                return res.status(409).json({
-                    'error': 'email already exist !'
+                return res.status(200).json({
+                    error: 'email already exist !'
                 })
             }
         })
         .catch(err => {
             return res.status(500).json({
-                'error': 'erreur findOne',
-                'err': `${err}`
+                error: 'erreur findOne',
+                err: `${err}`
             })
         })
 }
@@ -91,7 +91,7 @@ exports.login = (req, res) => {
 exports.getuser = (req, res) => {
     let id = jwt.getid(req)
     models.User.findOne({
-            attributes: ['id', 'email', 'username'],
+            attributes: ['id', 'email', 'username', 'isAdmin'],
             where: {
                 id: id
             }
@@ -115,32 +115,59 @@ exports.deluser = (req, res) => {
     let id = jwt.getid(req)
     models.User.findOne({
             where: {
-                id: req.params.id
+                id: req.params.id // find user target on DB
             }
         })
-        .then(user => {
-            if (user.id == id) {
-                return res.status(200).json("C'est ton profil")
-            } else {
-                models.User.findOne({
+        .then(usert => {
+            if (usert.id == id) { // if user target is you
+                models.User.destroy({
                         where: {
                             id: id
                         }
                     })
+                    .then(userdeleted => {
+                        return res.status(200).json({
+                            message: 'Your account has been deleted !'
+                        })
+                    })
+                    .catch(err => {
+                        return res.status(500).json({
+                            error: `${err}`
+                        })
+                    })
+            } else { // is user target is not you
+                models.User.findOne({ // find you in DB
+                        where: {
+                            id: id //use id in your token
+                        }
+                    })
                     .then(user => {
-                        if (user.isAdmin == true) {
-                            return res.status(200).json({
-                                message: 'ok'
-                            })
-                        } else {
+                        if (user.isAdmin == true) { // if you are Admin
+                            models.User.destroy({
+                                    where: {
+                                        id: req.params.id
+                                    }
+                                })
+                                .then(userdeleted => {
+                                    return res.status(200).json({
+                                        message: `Account "${usert.username}" has been deleted`
+                                    })
+                                })
+                                .catch(err => {
+                                    return res.status(500).json({
+                                        error: `${err}`
+                                    })
+                                })
+                        } else { // if you dont have admin permissions
                             return res.status(401).json({
                                 error: 'Unauthorized request !'
                             })
                         }
                     })
-                    .catch(err => {
+                    .catch(err => { // if you dont exist in DB
+                        console.log(err)
                         return res.status(404).json({
-                            error: 'User not found !'
+                            error: 'Your account is not active on Groupomania !'
                         })
                     })
             }
@@ -150,5 +177,43 @@ exports.deluser = (req, res) => {
                 error: 'User not found !'
             })
         })
+}
+exports.listUsers = (req, res) => {
+    let fields = req.query.fields
+    let order = req.query.order
+    let limit = parseInt(req.query.limit)
+    models.User.findAll({
+            order: [(order != null) ? order.split(':') : ['createdAt', 'DESC']],
+            attributes: (fields != '*' && fields != null) ? fields.split(',') : ['id', 'email', 'username', 'isAdmin', 'createdAt'],
+            limit: (!isNaN(limit)) ? limit : null
+        })
+        .then(users => {
+            if (users) {
+                res.status(200).json(users)
+            } else {
+                res.status(404).json({
+                    'error': 'no users found'
+                })
+            }
+        })
+        .catch(err => {
+            console.log(err)
+            res.status(500).json({
+                'error': `${err}`
+            })
+        })
+}
 
+exports.upUser = (req, res) => {
+    models.User.update({
+        isAdmin: req.body.isAdmin
+    }, {
+        where: {
+            id: req.params.id
+        }
+    }).then(user => {
+        return res.status(201).json(user)
+    }).catch(err => {
+        return res.status(500).json(err)
+    })
 }

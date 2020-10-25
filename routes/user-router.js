@@ -28,6 +28,10 @@ router.post('/users/login', [ //route /login
 
 router.get('/users/me', auth, usersCtrl.getuser)
 
+router.get('/users/', auth, usersCtrl.listUsers)
+
 router.delete('/users/:id', auth, usersCtrl.deluser)
+
+router.put('/users/:id', auth, usersCtrl.upUser)
 
 module.exports = router
