@@ -1,5 +1,5 @@
 const msgCtrl = require('../controllers/message-ctrl')
-const likeCtrl = require('../controllers/like-test-ctrl')
+const likeCtrl = require('../controllers/like-ctrl')
 const router = require('express').Router()
 const auth = require('../middleware/auth');
 

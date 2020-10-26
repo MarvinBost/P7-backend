@@ -1,214 +1,183 @@
-const models = require('../models/')
+const models = require('../models')
 const jwt = require('../utils/jwt.utils')
 
-const DISLIKED = 0
-const LIKED = 1
-
+let liked = 1
+let disliked = 0
 exports.like = (req, res) => {
-    let id = jwt.getid(req)
+    let userid = jwt.getid(req)
     let messageId = parseInt(req.params.messageId)
-
     if (messageId <= 0) {
         return res.status(400).json({
             'error': 'missing request data query'
         })
     }
-
     models.Message.findOne({
+        where: {
+            id: messageId
+        }
+    }).then(message => {
+        models.User.findOne({
             where: {
-                id: messageId
+                id: userid
             }
-        })
-        .then(message => {
-            if (message) { // if message found
-                models.User.findOne({ // search user by id with token
-                        where: {
-                            id: id
-                        }
-                    })
-                    .then(user => {
-                        if (user) { // if user found
-                            models.Like.findOne({ //search in table like with id and message id
-                                    where: {
-                                        userId: id,
-                                        messageId: messageId
-                                    }
-                                })
-                                .then(userLiked => {
-                                    if (!userLiked) { // if user already found
-                                        message.addUser(user, {
-                                                isLike: LIKED
-                                            })
-                                            .then(alreadyLike => {
-                                                message.update({
-                                                    likes: message.likes + 1,
-                                                }).then(() => {
-                                                    if (message) {
-                                                        return res.status(201).json({
-                                                            'message': `${message}`
-                                                        })
-                                                    } else {
-                                                        return res.status(500).json({
-                                                            'error': 'update message like counter'
-                                                        })
-                                                    }
-                                                })
-                                            })
-                                            .catch(err => {
-                                                return res.status(500).json({
-                                                    'error': [{
-                                                        'error': 'unable to set user reaction',
-                                                        err
-                                                    }]
-                                                })
-                                            })
-                                    } else {
-                                        if (userLiked.isLike === DISLIKED) {
-                                            userLiked.update({
-                                                    isLike: LIKED,
-                                                })
-                                                .then(() => {
-                                                    message.update({
-                                                            likes: message.likes + 1,
-                                                        })
-                                                        .then(() => {
-                                                            if (message) {
-                                                                return res.status(201).json({
-                                                                    'message': `${message}`
-                                                                })
-                                                            } else {
-                                                                return res.status(500).json({
-                                                                    'error': 'update message like counter'
-                                                                })
-                                                            }
-                                                        })
-                                                })
-                                                .catch(err => {
-                                                    res.status(500).json({
-                                                        'error': 'cannot update user reaction'
-                                                    })
-                                                })
+        }).then(user => {
+            models.Like.findOne({
+                    where: {
+                        userId: userid,
+                        messageId: messageId
+                    }
+                }).then(messageliked => {
+                    if (!messageliked) { // if message is not liked
+                        message.addUser(user, { // add like
+                                through: {
+                                    isLike: liked
+                                }
+                            })
+                            .then(() => {
+                                message.update({
+                                        likes: message.likes + 1
+                                    })
+                                    .then(() => {
+                                        if (message) {
+                                            return res.status(201).json(message)
                                         } else {
-                                            res.status(409).json({
-                                                'error': [{
-                                                    'error': 'message already liked',
-                                                    err
-                                                }]
+                                            return res.status(500).json({
+                                                'error': 'cannot update message 2'
                                             })
                                         }
+                                    })
+                            })
+                            .catch(err => {
+                                return res.status(500).json(err)
+                            })
+                    } else {
+                        if (messageliked.isLike === disliked) { // if message is already disliked
+                            messageliked.update({
+                                    isLike: liked
+                                })
+                                .then(() => {
+                                    if (messageliked) {
+                                        message.update({
+                                                likes: message.likes + 1,
+                                                dislikes: message.dislikes - 1
+                                            })
+                                            .then(() => {
+                                                if (message) {
+                                                    return res.status(201).json(message)
+                                                } else {
+                                                    return res.status(500).json({
+                                                        'error': 'cannot update message 2'
+                                                    })
+                                                }
+                                            })
+                                    } else {
+                                        return res.status(500).json({
+                                            'error': 'cannot update message'
+                                        })
                                     }
                                 })
-                                .catch(err => {
-                                    res.status(500).json({
-                                        'error': `${err}`
-                                    })
-                                })
+
                         } else {
-                            res.status(404).json({
-                                'error': 'user not found'
+                            return res.status(304).json({
+                                'error': 'message already liked'
                             })
                         }
-                    })
-                    .catch(err => {
-                        res.status(500).json({
-                            'error': `user not verify : ${err}`
-                        })
-                    })
-            } else {
-                res.status(404).json({
-                    'error': 'post already liked'
+                    }
                 })
-            }
-        })
-        .catch(err => {
-            err => {
-                res.status(500).json({
-                    'error': `${err}`
+                .catch(err => {
+                    return res.status(500).json(err)
                 })
-            }
         })
+    }).catch(err => {
+        return res.status(500).json(err)
+    })
 }
 
 exports.dislike = (req, res) => {
-    let id = jwt.getid(req)
-    let messageId = parseInt(req.query.messageId)
-
+    let userid = jwt.getid(req)
+    let messageId = parseInt(req.params.messageId)
     if (messageId <= 0) {
         return res.status(400).json({
             'error': 'missing request data query'
         })
     }
-
     models.Message.findOne({
+        where: {
+            id: messageId
+        }
+    }).then(message => {
+        models.User.findOne({
             where: {
-                id: messageId
+                id: userid
             }
-        })
-        .then(message => {
-            if (message) {
-                models.User.findOne({
-                        where: {
-                            id: id
-                        }
-                    })
-                    .then(user => {
-                        if (user) {
-                            models.Like.findOne({
-                                    where: {
-                                        userId: id,
-                                        messageId: messageId
-                                    }
+        }).then(user => {
+            models.Like.findOne({
+                    where: {
+                        userId: userid,
+                        messageId: messageId
+                    }
+                }).then(messageliked => {
+                    if (!messageliked) { // if message is not disliked or liked
+                        message.addUser(user, {
+                                through: {
+                                    isLike: disliked
+                                }
+                            })
+                            .then(() => {
+                                message.update({
+                                        dislikes: message.likes + 1
+                                    })
+                                    .then(() => {
+                                        if (message) {
+                                            return res.status(201).json(message)
+                                        } else {
+                                            return res.status(500).json({
+                                                'error': 'cannot update message 2'
+                                            })
+                                        }
+                                    })
+                            })
+                            .catch(err => {
+                                return res.status(500).json(`${err}`)
+                            })
+                    } else {
+                        if (messageliked.isLike === liked) {
+                            messageliked.update({
+                                    isLike: disliked
                                 })
-                                .then(userLiked => {
-                                    if (userLiked) {
-                                        userLiked.destroy()
+                                .then(() => {
+                                    if (messageliked) {
+                                        message.update({
+                                                likes: message.likes - 1,
+                                                dislikes: message.dislikes + 1
+                                            })
                                             .then(() => {
-                                                message.update({
-                                                        likes: message.likes - 1
+                                                if (message) {
+                                                    return res.status(201).json(message)
+                                                } else {
+                                                    return res.status(500).json({
+                                                        'error': 'cannot update message 2'
                                                     })
-                                                    .then(() => {
-                                                        if (message) {
-                                                            return res.status(201).json(message)
-                                                        } else {
-                                                            return res.status(500).json({
-                                                                'error': 'cannot update message'
-                                                            })
-                                                        }
-                                                    })
-                                                    .catch(err => {
-                                                        res.status(500).json({
-                                                            'error': 'cannot update message counter'
-                                                        })
-                                                    })
+                                                }
                                             })
-                                            .catch(err => {
-                                                return res.status(500).json({
-                                                    'error': 'cannot remove already liked post'
-                                                })
-                                            })
+                                    } else {
+                                        return res.status(500).json({
+                                            'error': 'cannot update message'
+                                        })
                                     }
                                 })
-                                .catch(res.status(500).json({
-                                    'error': `${err}`
-                                }))
                         } else {
-                            res.status(404).json({
-                                'error': 'user not found'
+                            return res.status(304).json({
+                                'error': 'message already disliked'
                             })
                         }
-                    })
-                    .catch(res.status(500).json({
-                        'error': `user not verify : ${err}`
-                    }))
-            } else {
-                res.status(404).json({
-                    'error': 'post already liked'
+                    }
                 })
-            }
+                .catch(err => {
+                    return res.status(500).json(`${err}`)
+                })
         })
-        .catch(err => {
-            res.status(500).json({
-                'error': `${err}`
-            })
-        })
+    }).catch(err => {
+        return res.status(500).json(`${err}`)
+    })
 }
